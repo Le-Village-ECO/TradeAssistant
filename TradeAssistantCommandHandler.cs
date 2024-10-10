@@ -1,5 +1,4 @@
 ﻿using Eco.Core.Plugins;
-using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
 using Eco.Gameplay.Players;
 using Eco.Gameplay.Systems;
@@ -9,7 +8,11 @@ using Eco.Gameplay.Utils;
 using Eco.Shared;
 using Eco.Shared.Localization;
 using Eco.Shared.Utils;
+
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace TradeAssistant
 {
@@ -19,11 +22,10 @@ namespace TradeAssistant
         [ChatCommand("Shows commands available from the trade assistant mod", "ta")]
         public static void TradeAssistant() { }
 
-
         [ChatSubCommand(nameof(TradeAssistant), "READ ME FIRST!", ChatAuthorizationLevel.User)]
         public static void Help(User user)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             sb.AppendLine(Localizer.DoStr("Welcome to the Trade Assistant mod!"));
             sb.AppendLine(Localizer.DoStr("This mod will help you setup your store by adding buy and sell orders onto it and updating the sell order prices based on your profit configurations you've setup."));
             sb.Append(Localizer.DoStr("- The first step is to run ")).Append(Text.Name("/ta setupsell")).AppendLine(Localizer.DoStr(", this will add all the items you're able to craft from the workbenches on this property to the shop sell orders. Go through this list and remove the items you're not interested in selling. Don't worry about updating the prices, the mod will do this for you later!"));
@@ -32,15 +34,18 @@ namespace TradeAssistant
             sb.Append(Localizer.DoStr("- Run ")).Append(Text.Name("/ta config")).AppendLine(Localizer.DoStr(" to set your desired profit percentage and cost per calory."));
             sb.Append(Localizer.DoStr("- Once you're done with that the last step is to run ")).Append(Text.Name("/ta update")).AppendLine(Localizer.DoStr(", this will update the prices of all your sell orders based on your configured profit percentage and labor cost."));
 
-            user.TempServerMessage(sb);
+            user.MsgLocStr(sb.ToString());
         }
 
         [ChatSubCommand(nameof(TradeAssistant), "Add sell orders for all the products you are able to craft in this property's Crafting Tables.", ChatAuthorizationLevel.User)]
         public static async Task SetupSell(User user)
         {
-            var calc =await TradeAssistantCalculator.TryInitialize(user);
+            var calc = await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null)
+            {
+                user.MsgLocStr("Cannot initialize calculator.");
                 return;
+            }
             
             var sb = new StringBuilder();
 
@@ -51,7 +56,7 @@ namespace TradeAssistant
             if (!itemsToAdd.Any())
             {
                 sb.AppendLine(Localizer.DoStr($"All the items you can craft is already added to the store."));
-                user.TempServerMessage(sb);
+                user.MsgLocStr(sb.ToString());
                 return;
             }
 
@@ -68,9 +73,9 @@ namespace TradeAssistant
                 offer.Price = 999999;
 
             sb.AppendLine(Localizer.DoStr($"Added {Text.Info(Text.Num(itemsToAdd.Count))} sell orders. Open the store and remove the items you're not interested in selling at your shop."));
-            user.TempServerMessage(sb);
+            user.MsgLocStr(sb.ToString());
         }
-
+        
         [ChatSubCommand(nameof(TradeAssistant), "Add buy orders for all the ingredients you need to make the products you're selling", ChatAuthorizationLevel.User)]
         public static async Task SetupBuy(User user)
         {
@@ -177,7 +182,7 @@ namespace TradeAssistant
             }
         }
         [ChatSubCommand(nameof(TradeAssistant), "Explains how the sell price is calculated for a product", ChatAuthorizationLevel.User)]
-        public static async Task Explain(User user, string itemName, User? whoToSendTo = null)
+        public static async Task Explain(User user, string itemName, User whoToSendTo = null)
         {
             var calc = await TradeAssistantCalculator.TryInitialize(user);
             if (calc == null) return;

@@ -4,14 +4,15 @@ using Eco.Core.Utils;
 using Eco.Gameplay.Items;
 using Eco.Gameplay.Players;
 using Eco.Gameplay.PropertyHandling;
-using Eco.Gameplay.Settlements;
 using Eco.Gameplay.Utils;
 using Eco.Shared.Networking;
 using Eco.Shared.Serialization;
 using Eco.Shared.Utils;
+
 using PropertyChanged;
+
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace TradeAssistant
 {
@@ -19,7 +20,7 @@ namespace TradeAssistant
     public class TradeAssistantData : Singleton<TradeAssistantData>, IStorage
     {
         [Serialized] public ThreadSafeDictionary<int, UserConfig> UserConfiguration = new();
-        public IPersistent? StorageHandle { get; set; }
+        public IPersistent StorageHandle { get; set; }
     }
 
     [Serialized]
@@ -76,7 +77,7 @@ namespace TradeAssistant
 
 
         #region IController
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
         int controllerID;
         [DoNotNotify] public ref int ControllerID => ref controllerID;
 

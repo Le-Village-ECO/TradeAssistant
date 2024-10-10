@@ -1,13 +1,11 @@
 ﻿using Eco.Gameplay.Components;
 using Eco.Gameplay.Components.Store;
 using Eco.Gameplay.DynamicValues;
-using Eco.Gameplay.Economy;
 using Eco.Gameplay.Items;
 using Eco.Gameplay.Items.Recipes;
 using Eco.Gameplay.Objects;
 using Eco.Gameplay.Players;
 using Eco.Gameplay.Property;
-using Eco.Gameplay.Settlements;
 using Eco.Gameplay.Systems.NewTooltip;
 using Eco.Gameplay.Systems.TextLinks;
 using Eco.Shared;
@@ -16,15 +14,19 @@ using Eco.Shared.Localization;
 using Eco.Shared.Math;
 using Eco.Shared.Utils;
 using Eco.Shared.Voxel;
+
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace TradeAssistant
 {
     public class TradeAssistantCalculator
     {
-        private record CachedPrice(float Price, StringBuilder Reason, Recipe? Recipe = null, List<LocString>? Warnings = null);
-        private record IngredientPrice(float Price, Item Item, LocString Reason, List<LocString>? Warnings);
+        private record CachedPrice(float Price, StringBuilder Reason, Recipe Recipe = null, List<LocString> Warnings = null);
+        private record IngredientPrice(float Price, Item Item, LocString Reason, List<LocString> Warnings);
         private record ProductPrice(CraftingElement Product, float Price, LocString Reason);
         private List<CraftingComponent> CraftingTables { get; }
         private List<User> Users { get; }
@@ -57,20 +59,20 @@ namespace TradeAssistant
                 .ToDictionary(x => x.Key, x => x.Min(o => o.Price));
         }
 
-        public static async Task<TradeAssistantCalculator?> TryInitialize(User user)
+        public static async Task<TradeAssistantCalculator> TryInitialize(User user)
         {
             var sb = new StringBuilder();
             var deed = GetDeed(sb, user);
             if (deed == null)
             {
-                user.TempServerMessage(sb);
+                user.MsgLocStr(sb.ToString());
                 return null;
             }
 
             var store = await GetStore(sb, user, deed);
             if (store == null)
             {
-                user.TempServerMessage(sb);
+                user.MsgLocStr(sb.ToString());
                 return null;
             }
 
@@ -85,7 +87,8 @@ namespace TradeAssistant
 
                 return new TradeAssistantCalculator(store!, craftingTables!, craftableItems!, user, user.Config());
             }
-            user.TempServerMessage(sb);
+
+            user.MsgLocStr(sb.ToString());
             return null;
         }
 
@@ -103,8 +106,8 @@ namespace TradeAssistant
                 .ToDictionary(x => x.Key, x => x.Select(y => y.item.TypeID).ToList());
         }
 
-        public bool TryGetCostPrice(int item, out float outPrice, out StringBuilder reason, out List<LocString>? warnings) => TryGetCostPrice(Item.Get(item), out outPrice, out reason, out warnings);
-        public bool TryGetCostPrice(Item item, out float outPrice, out StringBuilder reason, out List<LocString>? warnings)
+        public bool TryGetCostPrice(int item, out float outPrice, out StringBuilder reason, out List<LocString> warnings) => TryGetCostPrice(Item.Get(item), out outPrice, out reason, out warnings);
+        public bool TryGetCostPrice(Item item, out float outPrice, out StringBuilder reason, out List<LocString> warnings)
         {
             warnings = null;
 
@@ -167,7 +170,7 @@ namespace TradeAssistant
                 return hasBuyOrder;
             }
 
-            CachedPrice? bestPrice = null;
+            CachedPrice bestPrice = null;
             var rejectedPrices = new List<CachedPrice>();
             var failedRecipes = new List<LocString>();
             foreach (var (craftingTable, recipe) in recipes)
@@ -216,7 +219,7 @@ namespace TradeAssistant
                     explanation.AppendLineLoc($"Labour{userText}: UserModifiedCalories ({Text.StyledNum(recipe.Family.LaborInCalories.GetCurrentValue(user))}) * CostPer1000Calories ({Text.StyledNum(Config.CostPer1000Calories)}) / 1000 = {Text.StyledNum(labourCost)}");
 
                     // Ingredients cost
-                    var getIngredientPrice = (Item ingredient, IngredientElement element) =>
+                    IngredientPrice getIngredientPrice(Item ingredient, IngredientElement element)
                     {
                         if (!TryGetCostPrice(ingredient, out var tempPrice, out var reason, out var innerWarnings))
                             return new IngredientPrice(float.PositiveInfinity, ingredient, reason.ToStringLoc(), innerWarnings);
@@ -238,7 +241,7 @@ namespace TradeAssistant
                         }
                         var costPriceLink = TextLoc.FoldoutLoc($"CostPrice", $"Cost price of {ingredient.UILink()}", reason.ToStringLoc());
                         return new IngredientPrice(tempPrice * count, ingredient, Localizer.Do($"Ingredient {ingredient.UILink()}: Count ({countText}) * {costPriceLink} ({Text.StyledNum(tempPrice)}) = {Text.StyledNum(tempPrice * count)}"), innerWarnings);
-                    };
+                    }
 
                     var costs = recipe.Ingredients.Select(i => i.IsSpecificItem
                         ? getIngredientPrice(i.Item, i)
@@ -348,7 +351,7 @@ namespace TradeAssistant
             return new ProductPrice(product, totalCostPrice, reason);
         }
 
-        private static Deed? GetDeed(StringBuilder sb, User user)
+        private static Deed GetDeed(StringBuilder sb, User user)
         {
             // Get the plot the user is currently standing in
             var playerPlot = user.Position.XZi().ToPlotPos();
@@ -363,7 +366,7 @@ namespace TradeAssistant
             }
             return deedStandingIn;
         }
-        private static async Task<StoreComponent?> GetStore(StringBuilder sb, User user, Deed deed)
+        private static async Task<StoreComponent> GetStore(StringBuilder sb, User user, Deed deed)
         {
             var stores = WorldObjectUtil.AllObjsWithComponent<StoreComponent>()
                 .Where(store => store.IsRPCAuthorized(user.Player, AccessType.FullAccess, Array.Empty<object>())
@@ -384,7 +387,7 @@ namespace TradeAssistant
             sb.AppendLine(Localizer.Do($"You have more than one store on this property and declined to use the current closes store."));
             return null;
         }
-        private static bool TryGetStoreAndCraftingTables(StringBuilder sb, User user, Deed deed, out List<CraftingComponent>? craftingTables, out Dictionary<LocString, List<Item>>? craftableItems)
+        private static bool TryGetStoreAndCraftingTables(StringBuilder sb, User user, Deed deed, out List<CraftingComponent> craftingTables, out Dictionary<LocString, List<Item>> craftableItems)
         {
             craftingTables = null;
             craftableItems = null;

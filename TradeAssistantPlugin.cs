@@ -2,6 +2,7 @@
 using Eco.Core.Plugins.Interfaces;
 using Eco.Shared.Localization;
 using Eco.Shared.Utils;
+
 using System.Diagnostics.CodeAnalysis;
 
 namespace TradeAssistant
@@ -17,7 +18,7 @@ namespace TradeAssistant
                 foreach (var fileName in StorageManager.GetFiles("TradeAssistant"))
                     StorageManager.Delete(fileName);
 
-                data = StorageManager.LoadOrCreate<TradeAssistantData>("TradeAsisstant");
+                data = StorageManager.LoadOrCreate<TradeAssistantData>("TradeAssistant");
             }
         }
         public string GetCategory() => Localizer.DoStr("Mods");
